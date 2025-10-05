@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <?!= HtmlService.createHtmlOutputFromFile('form_css').getContent(); ?>
+</head>
+
+<body>
+  <header>
+    <div class="header-links">
+      <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>">勤怠ページ</a>
+      <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>&page=health">体調ページ</a>
+      <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>&page=level">目標ページ</a>
+      <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>&page=form">交代申請ページ</a>
+      <a href="<?= getAppUrl() ?>">ホームに戻る</a>
+    </div>
+  </header>
+  <div class="container">
+    <div>
+      <h3>交代申請</h2>
+      <p>交代の申請を希望する場合は下記より申請してください。</p>
+        <form id="shiftForm" onsubmit="handleExchangeFromSubmit(this); return false;">
+          <div>
+            <label for="date">交代日：</label>
+            <input name="date" id="date" type="date" required>
+          </div>
+
+          <div class="form-row">
+            <label style="flex:1;">開始：
+            <input name="start" id="start" type="time" required>
+            </label>
+
+            <label style="flex:1;">終了：
+            <input name="end" id="end" type="time" required>
+            </label>
+          </div>
+
+          <button type="submit" class="btn">交代を申請</button>
+        </form>
+        <div id="exchange_record_message" style="margin-top:10px;"></div>
+    </div>
+
+    <div>
+      <h3>
+        交代申請一覧
+        <span id="requestCount"></span>
+      </h3>
+      <p>交代を希望する日程があれば下記のボタンを押してください。</p>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>従業員番号</th>
+              <th>交代希望日</th>
+              <th>開始時間</th>
+              <th>終了時間</th>
+              <th>承認</th>
+            </tr>
+          </thead>
+          <tbody id="replacementRequestData"></tbody>
+        </table>
+      </div>
+      <div id="request_submit_message"></div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', function() {
+    google.script.run.withSuccessHandler(replacementRequestDataTable).unapprovedData();
+  });
+
+  function replacementRequestDataTable(response) {
+    const tableBody = document.getElementById('replacementRequestData');
+    const requestCountSpan = document.getElementById('requestCount');
+    const requestData = response.data;
+    
+    requestCountSpan.textContent = `(${response.count}件)`;
+
+    if (response.count === 0) {
+      tableBody.innerHTML = '<tr><td>交代の申請はまだありません。</td></tr>';
+      return;
+    }
+
+    let tableRowsHtml = '';
+    requestData.forEach(record => {
+      tableRowsHtml += `
+        <tr>
+          <td>${record.employeeId}</td>
+          <td>${record.shiftDate}</td>
+          <td>${record.startTime}</td>
+          <td>${record.endTime}</td>
+          <td>
+          <button class="btn "onclick="handleApprovalClick(
+            '${record.employeeId}',
+            '${record.shiftDate}',
+            '${record.startTime}',
+            '${record.endTime}'
+          )">希望する</button>
+          </td>
+        </tr>
+      `;
+    });
+    tableBody.innerHTML = tableRowsHtml;
+  }
+
+  /**
+   * 「承認する」ボタンがクリックされたときに実行される関数
+   */
+  function handleApprovalClick(employeeId, shiftDate, startTime, endTime) {
+    updateRequestMessage('送信中....');
+    const approvalData = {
+      employeeId: employeeId,
+      shiftDate: shiftDate,
+      startTime: startTime,
+      endTime: endTime,
+      approval: "未承認"
+    };
+    
+    google.script.run.withSuccessHandler(updateRequestMessage).approveShiftChange(approvalData);
+  }
+
+  function updateRequestMessage(message) {
+    var div = document.getElementById('request_submit_message');
+    div.innerHTML = message;
+  }
+
+
+  function handleExchangeFromSubmit(formObject){
+    const dataToSend = {
+    date: formObject.date.value,
+    start: formObject.start.value,
+    end: formObject.end.value
+    };
+      updateExchangeMessage('送信中....');
+      google.script.run.withSuccessHandler(updateExchangeMessage).replacementRequest(dataToSend);
+    }
+
+    function updateExchangeMessage(message) {
+      var div = document.getElementById("exchange_record_message");
+      div.innerHTML = message;
+    }
+  </script>
+</body>
+
+</html>

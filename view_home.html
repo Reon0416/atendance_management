@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <?!= HtmlService.createHtmlOutputFromFile('template.css').getContent(); ?>
+
+</head>
+
+<body>
+  <div class="container">
+    <div class="card1">
+      <div>
+        <a href="<?= getAppUrl() ?>?empId=manager">オーナー管理画面</a>
+      </div>
+      <div>
+        <h3>従業員一覧</h3>
+        <div></div>
+        <table border="1">
+          <thead>
+            <th>従業員番号</th>
+            <th>名前</th>
+          </thead>
+          <tbody>
+            <?
+            var record = getEmployees();
+            for (var i = 0; i <= record.length - 1; i++) {
+              var id = record[i]["id"]
+              var name = record[i]["name"]
+            ?>
+            <tr>
+              <th>
+                <a href="<?= getAppUrl() ?>?empId=<?= id ?>">
+                  <?= id ?>
+                </a>
+              </th>
+              <th>
+                <?= name ?>
+              </th>
+            </tr>
+            <? } ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

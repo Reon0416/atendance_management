@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <?!= HtmlService.createHtmlOutputFromFile('template.css').getContent(); ?>
+</head>
+
+<body>
+
+  <header>
+    <div class="header-links">
+      <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>">勤怠ページ</a>
+      <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>&page=health">体調ページ</a>
+      <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>&page=level">目標ページ</a>
+      <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>&page=form">交代申請ページ</a>
+      <a href="<?= getAppUrl() ?>">ホームに戻る</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="card1">
+      <div>
+        <form id="healthForm" onsubmit="return handleHealthCheckFormSubmit(this)">
+          <h3>体調チェック(出勤前に必ず回答)</h3>
+          <p style="font-weight: bold;">体調に異常がない場合はそのまま送信ボタンを押してください。</p>
+          <h4>体調はどうですか？</h4>
+
+          <div class="radio-group">
+            <label>
+            <input type="radio" name="q0_mood" value="😃 元気" checked>
+            <span>😃 元気</span>
+            </label>
+            <label>
+            <input type="radio" name="q0_mood" value="😷 少しでも体調不良を感じる">
+            <span>😷 少しでも体調不良を感じる</span>
+            </label>
+          </div>
+
+          <div class="range-group">
+            <label for="q1_range"><h4><strong>Q1.</strong> 今日の体調不良度を 0〜10 で教えてください</h4></label>
+            <div class="range-labels">
+              <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+              <span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+            </div>
+            <input id="q1_range" name="q1_body_severity" type="range" min="0" max="10" step="1" value="0" />
+            <div class="hint">0=元気！ / 3=軽い違和感 / 6=しんどい / 10=かなりつらい</div>
+          </div>
+
+          <div class="range-group">
+            <label for="q2_range"><h4><strong>Q2.</strong> 今日のモチベーションを 0〜10 で教えてください</h4></label>
+            <div class="range-labels">
+              <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+              <span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+            </div>
+            <input id="q2_range" name="q2_body_severity" type="range" min="0" max="10" step="1" value="7" />
+            <div class="hint">0=なさすぎる / 3=あまりない / 6=ある！ / 10=フルパワー！！！</div>
+          </div>
+
+          <div class="btn-frame">
+            <button type="submit" class="btn">送信</button>
+          </div>
+          <div id="health_check_message"></div>
+          <div id="health_alert_area"></div>
+        </form>
+      </div>
+
+      <div>
+        <h3>タイムレコーダー</h3>
+        <div class="date-display" id="current-date"></div>
+        <div class="time-display" id="current-time"></div>
+        <div class="status-display" id="current-status"></div>
+        <div class="message-display" id="notification-message"></div>
+
+        <div class="button-container">
+          <button class="btn" id="start-work-btn" onclick="timeRecord('出勤')">出勤</button>
+          <button class="btn" id="start-break-btn" onclick="timeRecord('休憩開始')">休憩開始</button>
+          <button class="btn" id="end-break-btn" onclick="timeRecord('休憩終了')">休憩終了</button>
+          <button class="btn" id="end-work-btn" onclick="timeRecord('退勤')">退勤</button>
+        </div>
+        <div class="btn-frame_return">
+          <a href="<?= getAppUrl() ?>">ホーム画面に戻る</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card2">
+      <div>
+        <span>名前:</span>
+        <span>
+        <?
+            var emp = getEmployeeName()
+        ?>
+          <?= emp ?>
+        </span>
+      </div>
+
+      <div>
+        <h3>今月の給与（目安）</h3>
+        <p id="salary-display" style="font-size: 1.2em; font-weight: bold;">計算中...</p>
+      </div>
+
+      <div>
+        <h3>今月のタイムレコーダー履歴</h3>
+        <div></div>
+        <table border="1">
+          <thead>
+            <th>種別</th>
+            <th>日時</th>
+          </thead>
+          <tbody>
+            <?
+            // 勤怠情報を取得 ※時間がずれる場合はプロジェクトの設定からタイムゾーンを設定してください
+            var record = getTimeClocks();
+            // 勤怠情報の配列の繰り返し処理
+            for (var i = 0; i <= record.length - 1; i++) {
+            ?>
+            <tr>
+              <th>
+                <?= record[i]['type'] ?>
+              </th>
+              <th>
+                <?= record[i]['date'] ?>
+              </th>
+            </tr>
+            <? } ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // https://developers.google.com/apps-script/guides/html/communication#forms
+      function preventFormSubmit() {
+        var forms = document.querySelectorAll('form');
+        for (var i = 0; i < forms.length; i++) {
+          forms[i].addEventListener('submit', function(event) {
+            event.preventDefault();
+          });
+        }
+      }
+      window.addEventListener('load', function() {
+    preventFormSubmit(); 
+    loadSalary();
+
+    const toggleBtn = document.getElementById('toggleGoalFormBtn');
+    const goalForm = document.getElementById('goalFormWrapper');
+
+    if (toggleBtn && goalForm) {
+      toggleBtn.addEventListener('click', function() {
+
+        const isHidden = goalForm.style.display === 'none';
+        goalForm.style.display = isHidden ? 'block' : 'none';
+
+        this.textContent = isHidden ? 'フォームを閉じる' : '目標を設定 / 編集する';
+      });
+    }
+  });
+
+      /**
+       *  タイムでコードのボタンクリック時に発火
+       */ 
+      const statusElement = document.getElementById('current-status');
+      const messageElement = document.getElementById('notification-message');
+      const startWorkBtn = document.getElementById('start-work-btn');
+      const endWorkBtn = document.getElementById('end-work-btn');
+      const startBreakBtn = document.getElementById('start-break-btn');
+      const endBreakBtn = document.getElementById('end-break-btn');
+
+      // リアルタイムで時刻を更新
+      function updateTime() {
+      const now = new Date();
+
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const date = now.getDate();
+      
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      
+      const displayDate = `${year}年${month}月${date}日`;
+      const displayTime = `${hours}:${minutes}:${seconds}`;
+      
+      document.getElementById('current-date').textContent = displayDate;
+      document.getElementById('current-time').textContent = displayTime;
+     };
+      setInterval(updateTime, 1000);
+      updateTime();
+
+      // UIの状態を現在のステータスに基づいて更新
+      function updateUI(status) {
+        statusElement.textContent = status;
+        
+        startWorkBtn.disabled = true;
+        endWorkBtn.disabled = true;
+        startBreakBtn.disabled = true;
+        endBreakBtn.disabled = true;
+
+        if (status === '未出勤') {
+          startWorkBtn.disabled = false;
+        } else if (status === '出勤中') {
+          startBreakBtn.disabled = false;
+          endWorkBtn.disabled = false;
+        } else if (status === '休憩中') {
+          endBreakBtn.disabled = false;
+        }
+      }
+      
+      // サーバーからの打刻応答を処理し、UIを更新
+      function handleRecordResponse(result) {
+        messageElement.textContent = result.statusMessage;
+        updateUI(result.status);
+      }
+
+      // 打刻ボタンがクリックされたときに実行される
+      function timeRecord(type) {
+        messageElement.innerHTML = '記録中...';
+        google.script.run
+          .withSuccessHandler(handleRecordResponse)
+          .saveWorkRecord(type);
+      }
+      
+      // ページ読み込み時に、スプレッドシートから最新の状態を取得してUIを初期化
+      google.script.run
+        .withSuccessHandler(updateUI)
+        .getInitialStatus();
+
+      /**
+       * 健康チェックアンケートの送信ボタンクリック時に発火
+       */ 
+      function handleHealthCheckFormSubmit(formEl) {
+        updateHealthCheckMessage({ message: '送信中....', isAlert: false });
+
+        const formObject = {
+          q1_mood: formEl.elements['q0_mood'].value,
+          q2_severity: Number(formEl.elements['q1_body_severity'].value),
+          q3_severity: Number(formEl.elements['q2_body_severity'].value)
+        };
+
+        google.script.run
+          .withSuccessHandler(updateHealthCheckMessage)
+          .withFailureHandler(err => {
+            updateHealthCheckMessage({
+              message: '送信に失敗しました。',
+              isAlert: true,
+              alertMessage: err && err.message ? err.message : '原因不明のエラーです。'
+            });
+          })
+          .saveHealthCheck(formObject);
+
+        return false;
+      }
+
+      /**
+       * 健康チェックアンケートの送信ボタン下のメッセージと警告を更新
+       */
+      function updateHealthCheckMessage(response) {
+        var messageDiv = document.getElementById('health_check_message');
+        var alertDiv = document.getElementById('health_alert_area');
+
+        alertDiv.innerHTML = '';
+        messageDiv.innerHTML = response.message;
+
+        if (response.isAlert) {
+          alertDiv.innerHTML = response.alertMessage;
+        }
+      }
+
+      /**
+       * 給与情報を読み込んで表示する
+       */
+      function loadSalary() {
+        google.script.run.withSuccessHandler(function(salary) {
+          document.getElementById('salary-display').innerText = salary;
+        }).calculateCurrentSalary();
+      }
+
+      function handleGoalRecordFormSubmit(formObject) {
+        updateGoalRecordMessage('送信中....');
+        google.script.run.withSuccessHandler(updateGoalRecordMessage).saveGoalRecord(formObject);
+      }
+
+      function updateGoalRecordMessage(message) {
+        var div = document.getElementById('goal_submit_message');
+        div.innerHTML = message;
+      }
+      
+
+  </script>
+</body>
+
+</html>

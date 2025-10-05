@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <?!= HtmlService.createHtmlOutputFromFile('manager_css').getContent(); ?>
+</head>
+
+<body>
+
+  <header>
+    <div class="header-links">
+      <a href="<?= getAppUrl() ?>">ホームに戻る</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="card1">
+      <div>
+        <h3>従業員の健康管理ページ一覧</h3>
+        <p>下の表から従業員の詳しい健康状態を見ることができます。</p>
+        <div></div>
+        <table border="1">
+          <thead>
+            <th>従業員番号</th>
+            <th>名前</th>
+          </thead>
+          <tbody>
+            <?
+            var record = getEmployees();
+            for (var i = 0; i <= record.length - 1; i++) {
+              var id = record[i]["id"]
+              var name = record[i]["name"]
+            ?>
+            <tr>
+              <th>
+                <a href="<?= getAppUrl() ?>?empId=<?= id ?>&page=health">
+                  <?= id ?>
+                </a>
+              </th>
+              <th>
+                <?= name ?>
+              </th>
+            </tr>
+            <? } ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card2">
+      <div>
+        <h3>承認状況一覧</h3>
+        <p>シフトごとの交代希望者の一覧を見ることができます。<br>交代者を決定した場合はボタンを押してください。</p>
+        <div id="complete_approval_message"><div>
+        <div id="approval-summary-view"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', () => {
+    google.script.run.withSuccessHandler(displayApprovalSummary).groupApproversByShift();
+  });
+
+  /**
+   * GASから受け取った集計データで、承認状況一覧を表示する
+   */
+function displayApprovalSummary(groupedResults) {
+  const container = document.getElementById('approval-summary-view');
+
+  if (!groupedResults || groupedResults.length === 0) {
+    container.innerHTML = '<p>承認済みのデータはありません。</p>';
+    return;
+  }
+
+  let htmlContent = '';
+  groupedResults.forEach(shift => {
+    const heading = `
+      申請者: [${shift.requesterId}] ${shift.requesterName} 
+      / ${shift.shiftDate} (${shift.startTime}〜${shift.endTime})
+    `;
+
+    const approversList = shift.approvers.map(approver => `[${approver.id}] ${approver.name}`).join(', ');
+
+    htmlContent += `
+      <div>
+        <h4>${heading}</h4>
+        <p>
+          <strong>承認者:</strong> ${approversList}
+        </p>
+        <button 
+          onclick="handleCompleteApprovalClick(
+            '${shift.requesterId}',
+            '${shift.shiftDate}',
+            '${shift.startTime}',
+            '${shift.endTime}'
+          )">
+          このシフトの承認を完了する
+        </button>
+      </div>
+    `;
+  });
+
+  container.innerHTML = htmlContent;
+}
+
+/**
+ * 「完了する」ボタンがクリックされたときに実行される関数
+ */
+function handleCompleteApprovalClick(requesterId, shiftDate, startTime, endTime) {
+  const messageDiv = document.getElementById('complete_approval_message');
+  
+  messageDiv.textContent = '送信中...';
+  messageDiv.style.color = '#f39c12';
+
+  const shiftData = {
+    requesterId: requesterId,
+    shiftDate: shiftDate,
+    startTime: startTime,
+    endTime: endTime
+  };
+
+  google.script.run.withSuccessHandler(response => {
+
+    messageDiv.textContent = response;
+    messageDiv.style.color = '#28a745';
+
+  }).completeApproval(shiftData);
+}
+  </script>
+</body>
+
+</html>

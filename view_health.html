@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <title>健康状態グラフ</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <?!= HtmlService.createHtmlOutputFromFile('health.css').getContent(); ?>
+  </head>
+  <body>
+    <header>
+      <div class="header-links">
+        <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>">勤怠ページ</a>
+        <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>&page=health">体調ページ</a>
+        <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>&page=level">目標ページ</a>
+        <a href="<?= getAppUrl() ?>?empId=<?= selectedEmpId ?>&page=form">交代申請ページ</a>
+        <a href="<?= getAppUrl() ?>">ホームに戻る</a>
+        <div>
+          <a href="<?= getAppUrl() ?>?empId=manager">オーナー管理画面</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="card1">
+        <div>
+          <h3>今月の健康状態の推移</h1>
+          <div class="canvas_container">
+            <div class="can">
+              <div>
+                <canvas id="physicalHealthChart"></canvas>
+              </div>
+            </div>
+            <div class="can">
+              <div>
+                <canvas id="mentalHealthChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3>
+            今月の警告履歴
+            <span id="alertCount"></span>
+          </h3>
+          <div>
+            <table>
+              <thead>
+                <tr>
+                  <th>送信時刻</th>
+                  <th>警告時ポイント</th>
+                </tr>
+              </thead>
+              <tbody id="alertHistoryTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <script>
+      window.addEventListener('load', function() {
+    google.script.run.withSuccessHandler(drawCharts).getHealthCheckData();
+    google.script.run.withSuccessHandler(populateAlertHistoryTable).getAlertHistory();
+  });
+
+  // グラフ描画のコード
+  function drawCharts(data) {
+    const labels = data.map(item => item.timestamp);
+    const physicalData = data.map(item => item.q2Severity);
+    const mentalData = data.map(item => item.q3Severity);
+    const ctxPhysical = document.getElementById('physicalHealthChart').getContext('2d');
+    new Chart(ctxPhysical, {
+      type: 'line', data: { labels: labels, datasets: [{ label: '体の不調レベル', data: physicalData, borderColor: 'rgba(54, 162, 235, 1)', tension: 0.1 }] },
+      options: createChartOptions('体の不調レベルの推移')
+    });
+    const ctxMental = document.getElementById('mentalHealthChart').getContext('2d');
+    new Chart(ctxMental, {
+      type: 'line', data: { labels: labels, datasets: [{ label: 'モチベーションレベル', data: mentalData, borderColor: 'rgba(255, 99, 132, 1)', tension: 0.1 }] },
+      options: createChartOptions('モチベーションの推移')
+    });
+  }
+
+  function createChartOptions(titleText) {
+    return { responsive: true, scales: { y: { beginAtZero: true, suggestedMax: 10 } }, plugins: { title: { display: true, text: titleText, font: { size: 18 } }, legend: { display: false } } };
+  }
+
+  // 警告履歴のテーブルをデータで埋める関数
+  function populateAlertHistoryTable(response) {
+    const tableBody = document.getElementById('alertHistoryTableBody');
+    const alertCountSpan = document.getElementById('alertCount');
+    const historyData = response.data;
+    
+    // 件数を表示
+    alertCountSpan.textContent = `(${response.count}件)`;
+
+    if (response.count === 0) {
+      tableBody.innerHTML = '<tr><td>今月の警告履歴はありません。</td></tr>';
+      return;
+    }
+
+    let tableRowsHtml = '';
+    historyData.forEach(record => {
+      tableRowsHtml += `
+        <tr>
+          <td>${record.timestamp}</td>
+          <td>${record.points}</td>
+        </tr>
+      `;
+    });
+    tableBody.innerHTML = tableRowsHtml;
+  }
+  </script>
+  </body>
+</html>
